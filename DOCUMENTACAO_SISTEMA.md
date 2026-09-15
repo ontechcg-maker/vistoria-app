@@ -11,7 +11,7 @@ O **SEDE Vistorias** é uma plataforma web progressiva (PWA) desenvolvida especi
 1. **Garantir a preservação do patrimônio público municipal:** Assegurar que os bens públicos sejam entregues e devolvidos em condições ideais.
 2. **Comparativo Transparente (Antes vs. Depois):** Rastrear com rigor qualquer avaria nova, extravio, sujeira residual ou alteração ocorrida durante o período da cessão.
 3. **Laudos Oficiais com Validade Administrativa:** Gerar instantaneamente Termos de Entrega e Devolução em PDF institucional com brasão/logomarca, detalhamento item a item, relatório fotográfico e campo para assinaturas do Fiscal da SEDE e do Cessionário.
-4. **Operação em Campo (Offline-First) & Nuvem (Firebase):** O fiscal pode realizar a vistoria em campo sem sinal de internet; os dados são salvos localmente e sincronizados em tempo real com o banco de dados Firebase Firestore e Google Drive/Sheets assim que a conexão estiver disponível.
+4. **Operação em Campo (Offline-First) & Nuvem (Firebase):** O fiscal pode realizar a vistoria em campo sem sinal de internet; os dados são salvos com total segurança na memória local e sincronizados em tempo real com o banco de dados Firebase Firestore e pasta oficial do Google Drive assim que a conexão estiver disponível.
 
 ---
 
@@ -21,7 +21,7 @@ O **SEDE Vistorias** é uma plataforma web progressiva (PWA) desenvolvida especi
 | :--- | :--- | :--- |
 | **Banco Central em Nuvem** | **Firebase Firestore** | Persistência definitiva de todos os eventos, vistorias, itens de checklist, fotos e histórico. Sincronização bidirecional em tempo real entre dispositivos. |
 | **Cache Local Resiliente** | **Dexie / IndexedDB** | Permite funcionamento completo sem internet (*offline-first*), carregamento ultrarrápido e reatividade instantânea na interface. |
-| **Integração Externa** | **Google Sheets & Drive** | Espelhamento de cadastros em planilha institucional da prefeitura e backup dos termos em PDF e fotos na nuvem. |
+| **Backup & Armazenamento** | **Backup JSON & Google Drive** | Arquivamento dos laudos oficiais em PDF na pasta do Google Drive da secretaria e exportação/restauração completa do banco em arquivo JSON. |
 | **Segurança e Auditoria** | **Firestore Rules & Audit Log** | Regras de segurança em nuvem e histórico imutável de todas as ações executadas no sistema. |
 
 ---
@@ -31,14 +31,14 @@ O **SEDE Vistorias** é uma plataforma web progressiva (PWA) desenvolvida especi
 ### 3.1. Tela Inicial — Lista de Cessões de Espaço
 * **Acesso:** Rota principal (`/`).
 * **Elementos e Recursos:**
-  * **Barra de Ferramentas Superior:** Logomarca oficial, indicador de conexão com Firebase Firestore (`Nuvem: Conectada` / `🟢`), botão de sincronização com Google Sheets, configuração do Google Drive e botão `+ Nova Cessão`.
+  * **Barra de Ferramentas Superior:** Logomarca oficial, indicador de conexão com Firebase Firestore (`Nuvem: Conectada` / `🟢`), botão de Backup & Google Drive, e botão `+ Nova Cessão`.
   * **Campo de Busca:** Filtra por número de processo/protocolo, nome do evento, local ou cessionário em tempo real.
   * **Filtros Rápidos por Status:**
     * `Todos`: Exibe o total de eventos cadastrados.
     * `Inicial Pendente`: Eventos cadastrados que ainda não tiveram o Termo de Entrega concluído.
     * `Aguardando Final`: Eventos com vistoria inicial concluída, aguardando o encerramento do evento e desmontagem para a vistoria final.
     * `Concluídos (PDF)`: Eventos com vistoria final finalizada e laudo liberado.
-  * **Cartões de Evento:** Exibem o número do processo (ex: `PA-2026/4412-SEDE`), status colorido com ícone, datas de realização, cessionário, local e atalhos rápidos para editar, duplicar, excluir ou abrir o fluxo de vistoria.
+  * **Cartões de Evento:** Exibem o número do processo (ex: `PA-2026/4412-SEDE`), status colorido com ícone, datas de realização, cessionário, local e atalhos rápidos para editar cessionário, duplicar, excluir ou abrir o fluxo de vistoria.
 
 ---
 
@@ -55,12 +55,16 @@ O **SEDE Vistorias** é uma plataforma web progressiva (PWA) desenvolvida especi
   5. **Período e Prazos:** Data de Início, Horário de Previsão de Início, Horário de Previsão de Fim, Período de Montagem e Período de Desmontagem.
   6. **Observações Gerais:** Campo livre para anotações contratuais ou restrições de uso.
 
+### 3.2.1. Modal de Edição Exclusiva dos Dados do Cessionário
+* **Acionamento:** Botão com ícone de lápis `Editar Cessionário` localizado tanto no cartão do evento na lista inicial quanto no cabeçalho/ficha resumo da tela de detalhes da cessão.
+* **Finalidade:** Permite atualizar ou corrigir rapidamente os dados da entidade cessionária (Razão Social/Nome, CNPJ ou CPF, Nome e CPF do Representante Legal, E-mail institucional e Telefone/WhatsApp com máscara) a qualquer momento do ciclo de vida da cessão, sem afetar o checklist de itens ou as fotos já registradas.
+
 ---
 
 ### 3.3. Tela de Detalhes da Cessão & Stepper Temporal
 * **Acionamento:** Clique no cartão do evento na lista inicial.
 * **Componentes da Tela:**
-  * **Cabeçalho de Controle:** Botão voltar, dados essenciais do processo, atalho de edição cadastral, sincronização direta com o Google Drive e botões de emissão imediata do **Termo de Entrega (Inicial)** e do **Laudo Completo (Final)**.
+  * **Cabeçalho de Controle:** Botão voltar, dados essenciais do processo, botão `Editar Cessionário`, envio direto do laudo para o Google Drive e botões de emissão imediata do **Termo de Entrega (Inicial)** e do **Laudo Completo (Final)**.
   * **Linha do Tempo Visual (Stepper):** Indica o progresso do processo em 4 etapas claras:
     1. *Cessão Cadastrada* (Concluído)
     2. *Vistoria Inicial* (Pendente ou Concluída)
@@ -143,12 +147,12 @@ O **SEDE Vistorias** é uma plataforma web progressiva (PWA) desenvolvida especi
 
 ---
 
-### 3.9. Modal de Configuração do Google Drive & Planilhas
-* **Acionamento:** Botão `Google Drive & Sheets` na barra superior.
+### 3.9. Modal de Backup do Sistema & Google Drive
+* **Acionamento:** Botão `Backup & Drive` na barra superior.
 * **Recursos:**
-  * Configuração da pasta do Google Drive (`ID da Pasta` ou `Nome da Pasta`).
-  * Configuração da URL da planilha ou Webhook do Google Apps Script para sincronização bidirecional automática.
-  * Opção de backup local em formato JSON e restauração de dados.
+  * **Backup e Restauração Completa (JSON):** Exportação em um clique de todos os eventos, vistorias, itens, fotos e históricos em arquivo `.json`. Restauração com validação de dados.
+  * **Pasta Oficial do Google Drive:** Link direto para abertura no navegador da pasta oficial da SEDE Campina Grande destinada ao arquivamento dos Termos Oficiais em PDF.
+  * Configuração do ID e Nome da pasta de destino no Google Drive.
 
 ---
 

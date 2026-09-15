@@ -7,12 +7,12 @@ Sistema oficial para fiscalização, controle, vistoria inicial (entrega), visto
 
 ## 🚀 Principais Recursos
 
-- **Cadastro Completo de Cessões:** Número de processo administrativo, dados do cessionário, áreas cedidas no Parque do Povo, prazos de montagem e desmontagem.
+- **Cadastro & Edição de Cessões:** Número de processo administrativo, dados completos do cessionário (com edição a qualquer momento), áreas cedidas no Parque do Povo, prazos de montagem e desmontagem.
 - **Vistoria Inicial (Entrega):** Checklist de integridade do patrimônio com conferência item a item e emissão do Termo de Entrega.
 - **Vistoria Final (Devolução):** Comparativo visual automatizado entre o estado inicial e final, com detecção de avarias novas, sujeira residual e extravios.
 - **Laudos Oficiais em PDF:** Termos com padrão institucional da PMCG/SEDE, com logomarca, tabelas comparativas e anexo fotográfico.
 - **Banco de Dados em Nuvem (Firebase Firestore):** Sincronização em tempo real e persistência na nuvem com funcionamento offline-first resiliente via IndexedDB.
-- **Integração com Google Sheets & Google Drive:** Backup de relatórios, fotos e espelhamento em planilhas da secretaria.
+- **Backup & Google Drive:** Arquivamento de termos em PDF na pasta oficial do Google Drive e exportação/restauração completa em JSON.
 
 ---
 

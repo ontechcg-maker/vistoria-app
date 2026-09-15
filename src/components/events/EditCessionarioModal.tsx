@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Building, User, CreditCard, Phone, Mail, X, Save, AlertCircle } from 'lucide-react';
 import type { Evento } from '../../types/vistoria';
 import { db, registrarHistorico } from '../../db/database';
-import { pushEventToGoogleSheets } from '../../services/googleSheetsSyncService';
 
 interface EditCessionarioModalProps {
   isOpen: boolean;
@@ -102,11 +101,6 @@ export const EditCessionarioModal: React.FC<EditCessionarioModalProps> = ({
         'Dados do Cessionário Atualizados',
         `Cessionário: ${updatedEvento.contratante}${updatedEvento.docContratante ? ` (${updatedEvento.docContratante})` : ''} • Rep: ${repFinal || 'Não informado'}`
       );
-
-      // 4. Sincroniza em segundo plano com Google Sheets se configurado
-      pushEventToGoogleSheets(evento.id).catch((err) => {
-        console.warn('Sincronização em background Google Sheets:', err);
-      });
 
       onSaved(updatedEvento);
       onClose();

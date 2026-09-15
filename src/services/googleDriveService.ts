@@ -1,6 +1,5 @@
 import { getGoogleDriveConfig, registrarHistorico, db } from '../db/database';
 import { generateTermoVistoriaPdf } from './pdfGenerator';
-import { pushEventToGoogleSheets } from './googleSheetsSyncService';
 
 declare global {
   interface Window {
@@ -89,13 +88,43 @@ export async function syncEventToGoogleDrive(eventoId: string, accessToken?: str
 
   const config = await getGoogleDriveConfig();
 
-  // 1. Se houver Webhook / Google Apps Script configurado
+  // 1. Se houver Webhook configurado para o Google Drive
   if (config.webhookUrl) {
-    const result = await pushEventToGoogleSheets(eventoId);
-    return {
-      success: result.success,
-      message: result.message,
-    };
+    try {
+      const pdfDoc = await generateTermoVistoriaPdf({
+        evento,
+        vistoriaInicial,
+        vistoriaFinal,
+        itensIniciais,
+        itensFinais,
+        fotos,
+      });
+      const pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
+      const payload = {
+        action: 'saveVistoriaPdf',
+        evento,
+        pdfBase64,
+        fileName: `Termo_Vistoria_${evento.codigo || 'SN'}.pdf`,
+        folderId: config.folderId || '14oQVraHMiuWGYb1EuYl17S32-41oKGVQ',
+        timestamp: new Date().toISOString(),
+      };
+
+      await fetch(config.webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      });
+
+      return {
+        success: true,
+        message: 'Termo em PDF salvo com sucesso na pasta do Google Drive!',
+      };
+    } catch (err: unknown) {
+      return {
+        success: false,
+        message: `Falha ao enviar para o Drive: ${(err as Error).message || 'Erro de conexão'}`,
+      };
+    }
   }
 
   // 2. Se tiver token de acesso OAuth 2.0 (Google Drive API v3)

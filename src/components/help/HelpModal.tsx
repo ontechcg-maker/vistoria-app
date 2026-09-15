@@ -129,10 +129,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         { num: '2', title: 'Dados do Cessionário', desc: 'Nome ou Razão Social, CNPJ/CPF, representante legal e telefone com WhatsApp.' },
         { num: '3', title: 'Seleção das Áreas', desc: 'Clique nos chips do Parque do Povo: Pirâmide, Parte Superior, Parte Inferior e Sanitários.' },
         { num: '4', title: 'Prazos de Montagem/Desmontagem', desc: 'Defina as datas e horários estipulados para início e devolução do espaço.' },
+        { num: '5', title: 'Edição a Qualquer Momento', desc: 'Precisa atualizar razão social, CPF/CNPJ ou telefone? Basta clicar no botão "Editar Cessionário" na tela da cessão.' },
       ],
       tips: [
         'Ao clicar nos chips de áreas, o sistema descreve automaticamente a cláusula de localização oficial do espaço cedido.',
         'Se o evento tiver dias de montagem prévia, cadastre os prazos para controle preciso da vistoria inicial.',
+        'Você pode editar os dados do cessionário a qualquer momento sem perder o checklist ou as fotos já registradas.',
       ],
       renderMockup: () => (
         <div className="bg-slate-900 rounded-xl p-3 border border-slate-700/80 text-xs shadow-inner space-y-2.5 font-sans">
@@ -448,6 +450,14 @@ export const HelpModal: React.FC<HelpModalProps> = ({
     {
       q: 'Posso usar o aplicativo no celular e no computador simultaneamente?',
       a: 'Sim! Com o Firebase Firestore em nuvem, se um fiscal realizar uma alteração ou adicionar fotos no celular em campo, qualquer outro membro da equipe com o sistema aberto no computador do escritório receberá as atualizações em tempo real, sem precisar recarregar a página.',
+    },
+    {
+      q: 'Como alterar ou retificar os dados do cessionário após o cadastro?',
+      a: 'Na tela do evento de cessão, clique no botão "Editar Cessionário" (ao lado do nome do evento ou no card de informações do cessionário). Você poderá corrigir o Nome/Razão Social, CPF/CNPJ, Representante Legal, E-mail e Telefone a qualquer momento.',
+    },
+    {
+      q: 'Como funciona a segurança e o backup de dados sem depender de planilhas?',
+      a: 'A sincronização ocorre em tempo real via Firebase Firestore diretamente com os servidores em nuvem. Além disso, no menu "Backup e Google Drive" na barra superior, você pode clicar em "Baixar Backup Completo" para salvar um arquivo JSON com 100% dos dados, fotos e vistorias.',
     },
   ];
 

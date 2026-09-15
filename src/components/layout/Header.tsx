@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Cloud, RefreshCw, CheckCircle2, AlertCircle, Database, HelpCircle } from 'lucide-react';
+import { Plus, Cloud, Database, HelpCircle } from 'lucide-react';
 import { AppIcon } from '../common/AppIcon';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
-import { subscribeSyncStatus, pullFromGoogleSheets, type SyncStatus } from '../../services/googleSheetsSyncService';
 import { subscribeFirebaseSync, migrateLocalDataToFirestore, type FirebaseSyncState } from '../../services/firestoreSyncService';
 
 interface HeaderProps {
@@ -18,13 +17,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHelp,
   onGoHome,
 }) => {
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
-    isSyncing: false,
-    lastSyncedAt: null,
-    error: null,
-    successMessage: null,
-  });
-
   const [firebaseSync, setFirebaseSync] = useState<FirebaseSyncState>({
     isConnected: true,
     isSyncing: false,
@@ -34,18 +26,11 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   useEffect(() => {
-    const unsubSheets = subscribeSyncStatus((st) => setSyncStatus(st));
     const unsubFirebase = subscribeFirebaseSync((fb) => setFirebaseSync(fb));
     return () => {
-      unsubSheets();
       unsubFirebase();
     };
   }, []);
-
-  const handleManualSync = async () => {
-    if (syncStatus.isSyncing) return;
-    await pullFromGoogleSheets(true);
-  };
 
   const handleFirebaseSync = async () => {
     if (firebaseSync.isSyncing) return;
@@ -75,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
             
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-xs sm:text-base tracking-tight text-white truncate group-hover:text-teal-300 transition-colors">
+                <span className="font-extrabold text-xs sm:base tracking-tight text-white truncate group-hover:text-teal-300 transition-colors">
                   SEDE Vistorias
                 </span>
                 <span className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-950 text-teal-300 border border-teal-800">
@@ -97,9 +82,9 @@ export const Header: React.FC<HeaderProps> = ({
               disabled={firebaseSync.isSyncing}
               title={
                 firebaseSync.isSyncing
-                  ? 'Sincronizando com Firestore...'
+                  ? 'Sincronizando com a Nuvem (Firestore)...'
                   : firebaseSync.isConnected
-                  ? `Firebase Cloud Conectado (${firebaseSync.cloudEventsCount} eventos na nuvem). Clique para forçar sincronização.`
+                  ? `Nuvem Conectada (${firebaseSync.cloudEventsCount} processos salvos na nuvem). Clique para forçar sincronização.`
                   : 'Modo Offline: dados salvos localmente e sincronizados assim que a conexão retornar.'
               }
               className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl border transition-all active:scale-95 min-h-[38px] sm:min-h-[42px] ${
@@ -111,60 +96,35 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <Database className={`w-3.5 h-3.5 ${firebaseSync.isSyncing ? 'animate-spin text-amber-400' : 'text-emerald-400'}`} />
-              <span className="hidden xl:inline">
-                {firebaseSync.isSyncing ? 'Nuvem: Enviando...' : 'Nuvem: Conectada'}
+              <span className="hidden sm:inline">
+                {firebaseSync.isSyncing ? 'Nuvem: Enviando...' : 'Nuvem Conectada'}
               </span>
               <span className={`w-2 h-2 rounded-full ${firebaseSync.isConnected ? 'bg-emerald-400' : 'bg-slate-400'}`} />
-            </button>
-
-            {/* Sync Now Button with Google Sheets */}
-            <button
-              id="btn-header-sheets-sync"
-              onClick={handleManualSync}
-              disabled={syncStatus.isSyncing}
-              title={syncStatus.error ? `Erro: ${syncStatus.error}. Clique para tentar sincronizar.` : 'Sincronizar com Google Sheets'}
-              className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl border transition-all active:scale-95 min-h-[38px] sm:min-h-[42px] ${
-                syncStatus.error
-                  ? 'bg-rose-950/40 text-rose-300 border-rose-800/80 hover:bg-rose-900/50'
-                  : syncStatus.isSyncing
-                  ? 'bg-teal-950/50 text-teal-300 border-teal-800 animate-pulse'
-                  : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
-              }`}
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${syncStatus.isSyncing ? 'animate-spin text-teal-400' : ''}`} />
-              <span className="hidden md:inline">
-                {syncStatus.isSyncing ? 'Sincronizando...' : 'Sincronizar'}
-              </span>
-              {syncStatus.error ? (
-                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-              ) : syncStatus.lastSyncedAt ? (
-                <CheckCircle2 className="w-3 h-3 text-emerald-400 hidden sm:inline" />
-              ) : null}
             </button>
 
             {/* Install Mobile PWA Button */}
             <PWAInstallButton variant="header" />
 
-            {/* Google Drive / Sheets Modal */}
+            {/* Google Drive & Backup Modal */}
             <button
               id="btn-header-drive-config"
               onClick={onOpenDriveConfig}
-              title="Configurar Google Sheets, Google Drive e Backup"
+              title="Backup e Restauração de Dados / Google Drive"
               className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all active:scale-95 min-h-[38px] sm:min-h-[42px]"
             >
               <Cloud className="w-4 h-4 text-teal-400 shrink-0" />
-              <span className="hidden lg:inline">Google Drive & Sheets</span>
+              <span className="hidden lg:inline">Backup & Drive</span>
             </button>
 
             {/* Help / Manual Modal */}
             <button
               id="btn-header-help"
               onClick={onOpenHelp}
-              title="Manual de Ajuda com Prints das Telas e Passo a Passo"
+              title="Manual do Usuário e Instruções Passo a Passo"
               className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-semibold rounded-xl text-teal-300 bg-teal-950/60 hover:bg-teal-900/60 border border-teal-800/80 transition-all active:scale-95 min-h-[38px] sm:min-h-[42px]"
             >
               <HelpCircle className="w-4 h-4 text-teal-400 shrink-0" />
-              <span className="hidden md:inline">Ajuda</span>
+              <span className="hidden md:inline">Ajuda & Manual</span>
             </button>
 
             {/* New Event Button */}

@@ -12,7 +12,6 @@ import { MobileBottomBar } from './components/layout/MobileBottomBar';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import { PWAInstallButton } from './components/pwa/PWAInstallButton';
 import { getCustomInspectionItems } from './config/defaultInspectionItems';
-import { pullFromGoogleSheets, pushEventToGoogleSheets, deleteEventFromGoogleSheets } from './services/googleSheetsSyncService';
 import { initFirestoreRealtimeSync } from './services/firestoreSyncService';
 
 export const App: React.FC = () => {
@@ -33,28 +32,6 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Auto-sincronização na inicialização e quando a aba ganha foco (Google Sheets)
-  useEffect(() => {
-    // Sincroniza ao abrir a página
-    pullFromGoogleSheets().catch((err) => console.warn('Auto-sync inicial:', err));
-
-    // Sincroniza ao focar na janela/aba (ex: usuário alternou entre celular e PC)
-    const handleFocus = () => {
-      pullFromGoogleSheets().catch(() => {});
-    };
-    window.addEventListener('focus', handleFocus);
-
-    // Sincronização periódica a cada 2 minutos
-    const interval = setInterval(() => {
-      pullFromGoogleSheets().catch(() => {});
-    }, 120000);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      clearInterval(interval);
-    };
-  }, []);
-
   // Criar ou Editar Evento
   const handleSaveEvent = async (eventData: Partial<Evento>) => {
     const now = new Date().toISOString();
@@ -66,8 +43,6 @@ export const App: React.FC = () => {
         updatedAt: now,
       });
       await registrarHistorico(eventToEdit.id, 'Usuário', 'Dados Cadastrais do Evento Atualizados');
-      // Sincroniza com Google Sheets em background
-      pushEventToGoogleSheets(eventToEdit.id).catch((err) => console.warn('Erro ao sincronizar edição:', err));
       setEventToEdit(null);
     } else {
       // Novo Evento
@@ -139,8 +114,6 @@ export const App: React.FC = () => {
       });
 
       await registrarHistorico(newId, 'Usuário', 'Evento Criado no Sistema', `Checklist com ${itensIniciais.length} itens oficiais gerado`);
-      // Sincroniza criação com Google Sheets em background
-      pushEventToGoogleSheets(newId).catch((err) => console.warn('Erro ao sincronizar novo evento:', err));
       setSelectedEventId(newId);
     }
   };
@@ -178,7 +151,6 @@ export const App: React.FC = () => {
     });
 
     await registrarHistorico(newId, 'Usuário', `Evento Duplicado a partir de ${evento.codigo}`);
-    pushEventToGoogleSheets(newId).catch((err) => console.warn('Erro ao sincronizar duplicação:', err));
     setSelectedEventId(newId);
   };
 
@@ -191,8 +163,6 @@ export const App: React.FC = () => {
       await db.fotos.where({ eventoId }).delete();
       await db.historico.where({ eventoId }).delete();
     });
-
-    deleteEventFromGoogleSheets(eventoId).catch((err) => console.warn('Erro ao excluir no Google Sheets:', err));
 
     if (selectedEventId === eventoId) {
       setSelectedEventId(null);
