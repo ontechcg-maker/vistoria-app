@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "entities": {
+    "Evento": {
+      "title": "Evento",
+      "description": "Dados do processo de cessão de espaço e evento",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "codigo": { "type": "string" },
+        "processoProtocolo": { "type": "string" },
+        "nome": { "type": "string" },
+        "tipo": { "type": "string" },
+        "contratante": { "type": "string" },
+        "docContratante": { "type": "string" },
+        "representanteLegal": { "type": "string" },
+        "cpfRepresentanteLegal": { "type": "string" },
+        "responsavelEvento": { "type": "string" },
+        "telefoneResponsavel": { "type": "string" },
+        "emailResponsavel": { "type": "string" },
+        "espacoCedido": { "type": "string" },
+        "areaEspacoCedido": { "type": "string" },
+        "areasParqueDoPovo": { "type": "array", "items": { "type": "string" } },
+        "banheirosDisponibilizados": { "type": "array", "items": { "type": "string" } },
+        "enderecoLocal": { "type": "string" },
+        "dataInicio": { "type": "string" },
+        "dataHoraPrevisaoInicio": { "type": "string" },
+        "dataHoraPrevisaoFim": { "type": "string" },
+        "periodoMontagem": { "type": "string" },
+        "periodoDesmontagem": { "type": "string" },
+        "dataHoraRealFim": { "type": "string" },
+        "observacoesGerais": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "codigo", "nome", "status", "createdAt", "updatedAt"]
+    },
+    "Vistoria": {
+      "title": "Vistoria",
+      "description": "Laudo de vistoria inicial ou final",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventoId": { "type": "string" },
+        "tipo": { "type": "string" },
+        "status": { "type": "string" },
+        "responsavelSedeNome": { "type": "string" },
+        "responsavelSedeMatricula": { "type": "string" },
+        "representanteCessionarioNome": { "type": "string" },
+        "representanteCessionarioCpf": { "type": "string" },
+        "responsavelNome": { "type": "string" },
+        "responsavelCargo": { "type": "string" },
+        "dataHoraPreenchimento": { "type": "string" },
+        "observacoesGerais": { "type": "string" },
+        "devolucaoStatus": { "type": "string" },
+        "providenciasPendencias": { "type": "string" },
+        "concluidaEm": { "type": "string" },
+        "editadaAposConclusaoEm": { "type": "string" },
+        "motivoEdicaoAposConclusao": { "type": "string" }
+      },
+      "required": ["id", "eventoId", "tipo", "status"]
+    },
+    "ItemVistoria": {
+      "title": "ItemVistoria",
+      "description": "Item avaliado no checklist de vistoria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventoId": { "type": "string" },
+        "vistoriaTipo": { "type": "string" },
+        "ambiente": { "type": "string" },
+        "descricao": { "type": "string" },
+        "quantidade": { "type": "number" },
+        "conferido": { "type": "boolean" },
+        "situacao": { "type": "string" },
+        "houveAlteracaoDano": { "type": "boolean" },
+        "providenciaNecessaria": { "type": "string" },
+        "observacao": { "type": "string" },
+        "resultadoComparacao": { "type": "string" },
+        "justificativaDivergencia": { "type": "string" },
+        "itemOriginalId": { "type": "string" },
+        "ordem": { "type": "number" }
+      },
+      "required": ["id", "eventoId", "vistoriaTipo", "ambiente", "descricao", "situacao", "ordem"]
+    },
+    "FotoVistoria": {
+      "title": "FotoVistoria",
+      "description": "Foto comprobatória da vistoria",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventoId": { "type": "string" },
+        "vistoriaTipo": { "type": "string" },
+        "itemId": { "type": "string" },
+        "ambiente": { "type": "string" },
+        "legenda": { "type": "string" },
+        "dataHora": { "type": "string" },
+        "responsavelEnvio": { "type": "string" },
+        "dataUrl": { "type": "string" },
+        "ordem": { "type": "number" }
+      },
+      "required": ["id", "eventoId", "vistoriaTipo", "ambiente", "dataHora", "dataUrl", "ordem"]
+    },
+    "HistoricoEvento": {
+      "title": "HistoricoEvento",
+      "description": "Registro de auditoria e log de evento",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "eventoId": { "type": "string" },
+        "dataHora": { "type": "string" },
+        "responsavel": { "type": "string" },
+        "acao": { "type": "string" },
+        "detalhes": { "type": "string" }
+      },
+      "required": ["id", "eventoId", "dataHora", "responsavel", "acao"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "Configurações gerais do sistema",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "object" }
+      },
+      "required": ["key"]
+    }
+  },
+  "firestore": {
+    "/eventos/{eventoId}": {
+      "entity": "Evento",
+      "description": "Eventos cadastrados para cessão e vistorias"
+    },
+    "/vistorias/{vistoriaId}": {
+      "entity": "Vistoria",
+      "description": "Laudos de vistoria inicial e final"
+    },
+    "/itens/{itemId}": {
+      "entity": "ItemVistoria",
+      "description": "Checklist de itens de vistoria"
+    },
+    "/fotos/{fotoId}": {
+      "entity": "FotoVistoria",
+      "description": "Fotos dos ambientes e itens inspecionados"
+    },
+    "/historico/{historicoId}": {
+      "entity": "HistoricoEvento",
+      "description": "Histórico de ações e auditoria"
+    },
+    "/config/{configKey}": {
+      "entity": "Config",
+      "description": "Configurações do sistema"
+    }
+  }
+}

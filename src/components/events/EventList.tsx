@@ -12,6 +12,18 @@ interface EventListProps {
   onNewEvent: () => void;
 }
 
+const formatDateBR = (dateStr: string) => {
+  if (!dateStr) return '';
+  if (dateStr.includes('T')) {
+    return new Date(dateStr).toLocaleDateString('pt-BR');
+  }
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+};
+
 export const EventList: React.FC<EventListProps> = ({
   eventos,
   onSelectEvent,
@@ -84,6 +96,7 @@ export const EventList: React.FC<EventListProps> = ({
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
+            id="input-search-events"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -95,6 +108,7 @@ export const EventList: React.FC<EventListProps> = ({
         {/* Filter Chips with smooth mobile scroll */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <button
+            id="btn-filter-all"
             onClick={() => setStatusFilter('ALL')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition shrink-0 min-h-[34px] ${
               statusFilter === 'ALL'
@@ -106,6 +120,7 @@ export const EventList: React.FC<EventListProps> = ({
           </button>
 
           <button
+            id="btn-filter-inicial-pendente"
             onClick={() => setStatusFilter('INICIAL_PENDENTE')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition shrink-0 min-h-[34px] ${
               statusFilter === 'INICIAL_PENDENTE'
@@ -117,6 +132,7 @@ export const EventList: React.FC<EventListProps> = ({
           </button>
 
           <button
+            id="btn-filter-aguardando-final"
             onClick={() => setStatusFilter('AGUARDANDO_FINAL')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition shrink-0 min-h-[34px] ${
               statusFilter === 'AGUARDANDO_FINAL'
@@ -128,6 +144,7 @@ export const EventList: React.FC<EventListProps> = ({
           </button>
 
           <button
+            id="btn-filter-concluido"
             onClick={() => setStatusFilter('CONCLUIDO')}
             className={`px-3 py-1.5 text-xs font-semibold rounded-xl transition shrink-0 min-h-[34px] ${
               statusFilter === 'CONCLUIDO'
@@ -161,6 +178,7 @@ export const EventList: React.FC<EventListProps> = ({
 
           <div className="flex items-center justify-center pt-2">
             <button
+              id="btn-new-event-empty"
               onClick={onNewEvent}
               className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 shadow-md shadow-teal-400/20 active:scale-95 transition min-h-[42px]"
             >
@@ -213,7 +231,7 @@ export const EventList: React.FC<EventListProps> = ({
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span>
-                        {new Date(evento.dataInicio).toLocaleDateString('pt-BR')}
+                        {formatDateBR(evento.dataInicio)}
                       </span>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, CheckCircle, X } from 'lucide-react';
+import { getNowLocalDateTimeString, formatDateTimeBR } from '../../utils/dateUtils';
 
 interface UnlockFinalModalProps {
   isOpen: boolean;
@@ -14,9 +15,14 @@ export const UnlockFinalModal: React.FC<UnlockFinalModalProps> = ({
   onClose,
   onConfirm,
 }) => {
-  const [dataHoraReal, setDataHoraReal] = useState(
-    new Date().toISOString().slice(0, 16)
-  );
+  const [dataHoraReal, setDataHoraReal] = useState(() => getNowLocalDateTimeString());
+
+  // Sempre que abre o modal, atualiza para o horário local atual
+  useEffect(() => {
+    if (isOpen) {
+      setDataHoraReal(getNowLocalDateTimeString());
+    }
+  }, [isOpen]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -75,11 +81,11 @@ export const UnlockFinalModal: React.FC<UnlockFinalModalProps> = ({
               onChange={(e) => setDataHoraReal(e.target.value)}
               className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none"
             />
-            {previsaoFim && (
-              <p className="text-[11px] text-slate-400 mt-1">
-                Previsão inicial de término: {new Date(previsaoFim).toLocaleString('pt-BR')}
-              </p>
-            )}
+              {previsaoFim && (
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Previsão inicial de término: {formatDateTimeBR(previsaoFim)}
+                </p>
+              )}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">

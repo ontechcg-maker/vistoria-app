@@ -1,32 +1,31 @@
-# React + TypeScript + Vite
+# SEDE Vistorias — Aplicativo de Vistoria de Cessão de Espaço Público
+### Prefeitura Municipal de Campina Grande — Secretaria de Desenvolvimento Econômico (SEDE)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Sistema oficial para fiscalização, controle, vistoria inicial (entrega), vistoria final (devolução) e emissão de laudos técnicos em PDF para cessão de espaços públicos municipais, como o Parque do Povo de Campina Grande.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Principais Recursos
 
-## React Compiler
+- **Cadastro Completo de Cessões:** Número de processo administrativo, dados do cessionário, áreas cedidas no Parque do Povo, prazos de montagem e desmontagem.
+- **Vistoria Inicial (Entrega):** Checklist de integridade do patrimônio com conferência item a item e emissão do Termo de Entrega.
+- **Vistoria Final (Devolução):** Comparativo visual automatizado entre o estado inicial e final, com detecção de avarias novas, sujeira residual e extravios.
+- **Laudos Oficiais em PDF:** Termos com padrão institucional da PMCG/SEDE, com logomarca, tabelas comparativas e anexo fotográfico.
+- **Banco de Dados em Nuvem (Firebase Firestore):** Sincronização em tempo real e persistência na nuvem com funcionamento offline-first resiliente via IndexedDB.
+- **Integração com Google Sheets & Google Drive:** Backup de relatórios, fotos e espelhamento em planilhas da secretaria.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 📚 Documentação Completa
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+Para ler o guia detalhado, telas e passo a passo de operação para os fiscais da SEDE, consulte:
+👉 **[DOCUMENTACAO_SISTEMA.md](./DOCUMENTACAO_SISTEMA.md)**
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+---
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## 🛠️ Tecnologias Utilizadas
+
+- **Frontend:** React 18, TypeScript, Tailwind CSS, Lucide React
+- **Banco de Dados & Nuvem:** Firebase Firestore + Dexie.js (IndexedDB) para cache offline
+- **Geração de Documentos:** jsPDF + jsPDF-AutoTable
+- **Build Tool:** Vite

@@ -49,6 +49,8 @@ export interface Evento {
   periodoMontagem?: string; // Período de Montagem
   periodoDesmontagem?: string; // Período de Desmontagem
   dataHoraRealFim?: string; // Data e hora real de encerramento
+  responsavelSedeNome?: string; // Responsável SEDE designado
+  responsavelSedeMatricula?: string; // Matrícula SEDE
   observacoesGerais?: string;
   status: EventStatus;
   createdAt: string;
@@ -114,6 +116,8 @@ export interface FotoVistoria {
   itemId?: string;
   ambiente: string;
   legenda?: string;
+  titulo?: string;
+  observacoes?: string;
   dataHora: string;
   responsavelEnvio?: string;
   dataUrl: string;

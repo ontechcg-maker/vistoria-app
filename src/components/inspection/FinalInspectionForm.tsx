@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -13,6 +13,8 @@ import {
   Unlock,
   ClipboardList,
   Printer,
+  Building,
+  Edit3,
 } from 'lucide-react';
 import type { Evento, Vistoria, ItemVistoria, FotoVistoria, CondicaoItem, SpaceReturnStatus } from '../../types/vistoria';
 import { db, registrarHistorico, getGoogleDriveConfig } from '../../db/database';
@@ -21,6 +23,7 @@ import { calculateComparisonResult, generateComparisonSummary, getComparisonLabe
 import { ConfirmationModal } from '../layout/ConfirmationModal';
 import { PhotoModal } from '../photos/PhotoModal';
 import { PhotoUploader } from '../photos/PhotoUploader';
+import { toInputDateTimeLocal, formatDateTimeBR } from '../../utils/dateUtils';
 
 interface FinalInspectionFormProps {
   evento: Evento;
@@ -31,6 +34,7 @@ interface FinalInspectionFormProps {
   fotos: FotoVistoria[];
   onRefresh: () => void;
   onGeneratePdf: () => void;
+  onEditCessionario?: () => void;
 }
 
 export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
@@ -42,16 +46,17 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
   fotos,
   onRefresh,
   onGeneratePdf,
+  onEditCessionario,
 }) => {
   const isConcluida = vistoriaFinal?.status === 'CONCLUIDA';
   const [isEditingLocked, setIsEditingLocked] = useState(isConcluida);
 
   // Campos oficiais da SEDE Campina Grande
   const [responsavelSedeNome, setResponsavelSedeNome] = useState(
-    vistoriaFinal?.responsavelSedeNome || vistoriaInicial?.responsavelSedeNome || vistoriaInicial?.responsavelNome || 'Fiscal de Vistoria da SEDE'
+    vistoriaFinal?.responsavelSedeNome || evento.responsavelSedeNome || vistoriaInicial?.responsavelSedeNome || vistoriaInicial?.responsavelNome || 'Fiscal de Vistoria da SEDE'
   );
   const [responsavelSedeMatricula, setResponsavelSedeMatricula] = useState(
-    vistoriaFinal?.responsavelSedeMatricula || vistoriaInicial?.responsavelSedeMatricula || 'SEDE-4412'
+    vistoriaFinal?.responsavelSedeMatricula || evento.responsavelSedeMatricula || vistoriaInicial?.responsavelSedeMatricula || 'SEDE-4412'
   );
   const [representanteCessionarioNome, setRepresentanteCessionarioNome] = useState(
     vistoriaFinal?.representanteCessionarioNome || vistoriaInicial?.representanteCessionarioNome || evento.representanteLegal || evento.responsavelEvento || ''
@@ -60,8 +65,8 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
     vistoriaFinal?.representanteCessionarioCpf || vistoriaInicial?.representanteCessionarioCpf || evento.cpfRepresentanteLegal || ''
   );
 
-  const [dataHora, setDataHora] = useState(
-    vistoriaFinal?.dataHoraPreenchimento || new Date().toISOString()
+  const [dataHora, setDataHora] = useState(() =>
+    toInputDateTimeLocal(vistoriaFinal?.dataHoraPreenchimento)
   );
   const [observacoesGerais, setObservacoesGerais] = useState(
     vistoriaFinal?.observacoesGerais || ''
@@ -72,6 +77,83 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
   const [providencias, setProvidencias] = useState(
     vistoriaFinal?.providenciasPendencias || ''
   );
+
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sincroniza estados quando vistoriaFinal ou evento mudam
+  useEffect(() => {
+    if (vistoriaFinal) {
+      if (vistoriaFinal.responsavelSedeNome) setResponsavelSedeNome(vistoriaFinal.responsavelSedeNome);
+      else if (evento.responsavelSedeNome) setResponsavelSedeNome(evento.responsavelSedeNome);
+      else if (vistoriaInicial?.responsavelSedeNome) setResponsavelSedeNome(vistoriaInicial.responsavelSedeNome);
+
+      if (vistoriaFinal.responsavelSedeMatricula) setResponsavelSedeMatricula(vistoriaFinal.responsavelSedeMatricula);
+      else if (evento.responsavelSedeMatricula) setResponsavelSedeMatricula(evento.responsavelSedeMatricula);
+      else if (vistoriaInicial?.responsavelSedeMatricula) setResponsavelSedeMatricula(vistoriaInicial.responsavelSedeMatricula);
+
+      if (vistoriaFinal.representanteCessionarioNome) setRepresentanteCessionarioNome(vistoriaFinal.representanteCessionarioNome);
+      else if (evento.representanteLegal) setRepresentanteCessionarioNome(evento.representanteLegal);
+
+      if (vistoriaFinal.representanteCessionarioCpf) setRepresentanteCessionarioCpf(vistoriaFinal.representanteCessionarioCpf);
+      else if (evento.cpfRepresentanteLegal) setRepresentanteCessionarioCpf(evento.cpfRepresentanteLegal);
+
+      if (vistoriaFinal.dataHoraPreenchimento) setDataHora(toInputDateTimeLocal(vistoriaFinal.dataHoraPreenchimento));
+      if (vistoriaFinal.observacoesGerais !== undefined) setObservacoesGerais(vistoriaFinal.observacoesGerais);
+      if (vistoriaFinal.devolucaoStatus) setDevolucaoStatus(vistoriaFinal.devolucaoStatus);
+      if (vistoriaFinal.providenciasPendencias !== undefined) setProvidencias(vistoriaFinal.providenciasPendencias);
+      setIsEditingLocked(vistoriaFinal.status === 'CONCLUIDA');
+    }
+  }, [vistoriaFinal, evento, vistoriaInicial]);
+
+  const persistFinalFields = async (overrides?: Partial<Vistoria>) => {
+    try {
+      setAutoSaveStatus('saving');
+      const vistoriaId = vistoriaFinal?.id || crypto.randomUUID();
+      const currentNome = overrides?.responsavelSedeNome ?? responsavelSedeNome;
+      const currentMatricula = overrides?.responsavelSedeMatricula ?? responsavelSedeMatricula;
+      const currentRepNome = overrides?.representanteCessionarioNome ?? representanteCessionarioNome;
+      const currentRepCpf = overrides?.representanteCessionarioCpf ?? representanteCessionarioCpf;
+      const currentObs = overrides?.observacoesGerais ?? observacoesGerais;
+      const currentProv = overrides?.providenciasPendencias ?? providencias;
+      const currentDev = (overrides?.devolucaoStatus ?? devolucaoStatus) as SpaceReturnStatus;
+      const currentData = overrides?.dataHoraPreenchimento ?? dataHora;
+
+      const vistoriaData: Vistoria = {
+        id: vistoriaId,
+        eventoId: evento.id,
+        tipo: 'FINAL',
+        status: vistoriaFinal?.status || 'RASCUNHO',
+        responsavelSedeNome: currentNome,
+        responsavelSedeMatricula: currentMatricula,
+        representanteCessionarioNome: currentRepNome,
+        representanteCessionarioCpf: currentRepCpf,
+        responsavelNome: currentNome,
+        responsavelCargo: `Fiscal SEDE (${currentMatricula || 'SEDE-4412'})`,
+        dataHoraPreenchimento: currentData,
+        observacoesGerais: currentObs,
+        devolucaoStatus: currentDev,
+        providenciasPendencias: currentProv,
+        concluidaEm: vistoriaFinal?.concluidaEm,
+      };
+
+      await db.vistorias.put(vistoriaData);
+      await db.eventos.update(evento.id, {
+        responsavelSedeNome: currentNome,
+        responsavelSedeMatricula: currentMatricula,
+        representanteLegal: currentRepNome || evento.representanteLegal,
+        cpfRepresentanteLegal: currentRepCpf || evento.cpfRepresentanteLegal,
+        updatedAt: new Date().toISOString(),
+      });
+
+      setAutoSaveStatus('saved');
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => setAutoSaveStatus('idle'), 2500);
+    } catch (err) {
+      console.warn('Erro no autosave da vistoria final:', err);
+      setAutoSaveStatus('idle');
+    }
+  };
 
   const [activePhoto, setActivePhoto] = useState<FotoVistoria | null>(null);
   const [activeItemPhotoUploader, setActiveItemPhotoUploader] = useState<string | null>(null);
@@ -160,6 +242,8 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
 
       await db.vistorias.put(vistoriaData);
       await db.eventos.update(evento.id, {
+        responsavelSedeNome,
+        responsavelSedeMatricula,
         status: 'AGUARDANDO_VISTORIA_FINAL',
         updatedAt: new Date().toISOString(),
       });
@@ -248,6 +332,10 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
 
           await db.vistorias.put(vistoriaData);
           await db.eventos.update(evento.id, {
+            responsavelSedeNome,
+            responsavelSedeMatricula,
+            representanteLegal: representanteCessionarioNome || evento.representanteLegal,
+            cpfRepresentanteLegal: representanteCessionarioCpf || evento.cpfRepresentanteLegal,
             status: 'VISTORIA_FINAL_CONCLUIDA',
             updatedAt: now,
           });
@@ -325,7 +413,7 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
             </div>
             <p className="text-xs text-slate-600 mt-0.5">
               {isConcluida && isEditingLocked
-                ? `Homologada em ${new Date(vistoriaFinal?.concluidaEm || vistoriaFinal?.dataHoraPreenchimento || '').toLocaleString('pt-BR')} por ${vistoriaFinal?.responsavelSedeNome || vistoriaFinal?.responsavelNome || 'Fiscal SEDE'}. Clique em "Editar Vistoria Final" para alterar itens, parecer ou status.`
+                ? `Homologada em ${formatDateTimeBR(vistoriaFinal?.concluidaEm || vistoriaFinal?.dataHoraPreenchimento)} por ${vistoriaFinal?.responsavelSedeNome || vistoriaFinal?.responsavelNome || 'Fiscal SEDE'}. Clique em "Editar Vistoria Final" para alterar itens, parecer ou status.`
                 : 'Você pode alterar a condição dos itens, observações, fotos pós-evento, providências e a declaração de devolução.'}
             </p>
           </div>
@@ -764,10 +852,65 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
 
         {/* Responsáveis Oficiais pela Vistoria Final */}
         <div className="space-y-4 pt-2 border-t border-slate-200">
-          <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-            <UserCheck className="w-4 h-4 text-teal-600" />
-            Identificação dos Responsáveis pela Vistoria Final
-          </h5>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <UserCheck className="w-4 h-4 text-teal-600" />
+              Identificação dos Responsáveis pela Vistoria Final
+            </h5>
+            {autoSaveStatus === 'saving' && (
+              <span className="text-[11px] text-teal-600 font-semibold flex items-center gap-1 animate-pulse">
+                Salvando alterações...
+              </span>
+            )}
+            {autoSaveStatus === 'saved' && (
+              <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <Check className="w-3 h-3 text-emerald-600" /> Salvo no sistema
+              </span>
+            )}
+          </div>
+
+          {/* Card do Cessionário Oficial com Ação de Edição */}
+          <div className="bg-slate-50/90 p-3.5 sm:p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-teal-100 text-teal-800 shrink-0">
+                <Building className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Cessionário Oficial</span>
+                  {evento.docContratante && (
+                    <span className="text-[11px] font-mono font-medium text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                      {evento.docContratante}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm font-bold text-slate-900 leading-snug">
+                  {evento.contratante}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                  {evento.representanteLegal && (
+                    <span>Rep. Legal: <strong className="text-slate-700">{evento.representanteLegal}</strong></span>
+                  )}
+                  {evento.telefoneResponsavel && (
+                    <span>• Contato: <strong className="text-slate-700">{evento.telefoneResponsavel}</strong></span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {onEditCessionario && (
+              <button
+                type="button"
+                id="btn-edit-cessionario-vistoria-final"
+                onClick={onEditCessionario}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-800 bg-white hover:bg-teal-50 border border-teal-300 shadow-xs transition active:scale-95 shrink-0 self-start sm:self-center"
+                title="Editar dados cadastrais, razão social, documento ou representantes do cessionário"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-teal-600" />
+                <span>Editar Dados do Cessionário</span>
+              </button>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
@@ -780,6 +923,8 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
                 disabled={isEditingLocked}
                 value={responsavelSedeNome}
                 onChange={(e) => setResponsavelSedeNome(e.target.value)}
+                onBlur={() => persistFinalFields({ responsavelSedeNome })}
+                placeholder="Nome do fiscal SEDE"
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-slate-50"
               />
             </div>
@@ -793,7 +938,8 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
                 disabled={isEditingLocked}
                 value={responsavelSedeMatricula}
                 onChange={(e) => setResponsavelSedeMatricula(e.target.value)}
-                placeholder="Ex: 12345-6"
+                onBlur={() => persistFinalFields({ responsavelSedeMatricula })}
+                placeholder="Ex: 12345-6 ou SEDE-4412"
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-slate-50"
               />
             </div>
@@ -807,6 +953,7 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
                 disabled={isEditingLocked}
                 value={representanteCessionarioNome}
                 onChange={(e) => setRepresentanteCessionarioNome(e.target.value)}
+                onBlur={() => persistFinalFields({ representanteCessionarioNome })}
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-slate-50"
               />
             </div>
@@ -820,6 +967,7 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
                 disabled={isEditingLocked}
                 value={representanteCessionarioCpf}
                 onChange={(e) => setRepresentanteCessionarioCpf(e.target.value)}
+                onBlur={() => persistFinalFields({ representanteCessionarioCpf })}
                 placeholder="000.000.000-00"
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-slate-50"
               />
@@ -831,9 +979,15 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
               </label>
               <input
                 type="datetime-local"
+                id="dataHoraFinal"
                 disabled={isEditingLocked}
-                value={dataHora ? dataHora.slice(0, 16) : ''}
-                onChange={(e) => setDataHora(e.target.value)}
+                value={toInputDateTimeLocal(dataHora)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDataHora(val);
+                  persistFinalFields({ dataHoraPreenchimento: val });
+                }}
+                onBlur={() => persistFinalFields({ dataHoraPreenchimento: dataHora })}
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-slate-50"
               />
             </div>
@@ -848,6 +1002,7 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
               disabled={isEditingLocked}
               value={observacoesGerais}
               onChange={(e) => setObservacoesGerais(e.target.value)}
+              onBlur={() => persistFinalFields({ observacoesGerais })}
               placeholder="Ex: Vistoria acompanhada pelo coordenador geral..."
               className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none disabled:bg-slate-50"
             />
@@ -924,13 +1079,17 @@ export const FinalInspectionForm: React.FC<FinalInspectionFormProps> = ({
         isDanger={confirmModal.isDanger}
       />
 
-      {/* Photo Modal */}
+      {/* Photo Modal Viewer & Editor */}
       <PhotoModal
         foto={activePhoto}
         onClose={() => setActivePhoto(null)}
         onDelete={async (fotoId) => {
           await db.fotos.delete(fotoId);
           setActivePhoto(null);
+          onRefresh();
+        }}
+        onPhotoUpdated={(updatedFoto) => {
+          setActivePhoto(updatedFoto);
           onRefresh();
         }}
         readOnly={isEditingLocked}

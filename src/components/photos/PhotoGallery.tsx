@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Image as ImageIcon, Filter, Eye, Trash2 } from 'lucide-react';
+import { Image as ImageIcon, Filter, Eye, Trash2, Edit3, FileText, Tag } from 'lucide-react';
 import type { FotoVistoria } from '../../types/vistoria';
 import { PhotoModal } from './PhotoModal';
 import { PhotoUploader } from './PhotoUploader';
+import { formatDateTimeBR } from '../../utils/dateUtils';
 
 interface PhotoGalleryProps {
   eventoId: string;
@@ -168,7 +169,7 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
               >
                 <img
                   src={foto.dataUrl}
-                  alt={foto.legenda || foto.ambiente}
+                  alt={foto.titulo || foto.legenda || foto.ambiente}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 
@@ -187,40 +188,90 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
 
                 {/* Hover overlay icon */}
                 <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                  <div className="p-2 rounded-xl bg-white/90 text-slate-900 shadow-lg">
-                    <Eye className="w-5 h-5" />
+                  <div className="p-2 rounded-xl bg-white/90 text-slate-900 shadow-lg flex items-center gap-1.5 text-xs font-bold">
+                    <Eye className="w-4 h-4" />
+                    <span>Visualizar</span>
                   </div>
                 </div>
               </div>
 
               {/* Card Footer */}
               <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
-                <div>
-                  <h5 className="text-xs font-bold text-slate-800 line-clamp-1">
-                    {foto.ambiente}
+                <div className="space-y-1">
+                  {/* Título ou Ambiente */}
+                  <h5 className="text-xs font-bold text-slate-900 line-clamp-1 flex items-center gap-1">
+                    {(foto.titulo || foto.legenda) ? (
+                      <>
+                        <Tag className="w-3 h-3 text-teal-600 shrink-0" />
+                        <span>{foto.titulo || foto.legenda}</span>
+                      </>
+                    ) : (
+                      <span>{foto.ambiente}</span>
+                    )}
                   </h5>
-                  {foto.legenda && (
-                    <p className="text-[11px] text-slate-600 line-clamp-2 mt-0.5">
-                      {foto.legenda}
-                    </p>
+
+                  {/* Ambiente secundário caso haja título */}
+                  {(foto.titulo || foto.legenda) && (
+                    <span className="text-[10px] text-slate-400 block truncate">
+                      {foto.ambiente}
+                    </span>
+                  )}
+
+                  {/* Observações da Foto */}
+                  {foto.observacoes ? (
+                    <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-100 mt-1">
+                      <p className="text-[11px] text-slate-600 line-clamp-2 italic leading-relaxed flex items-start gap-1">
+                        <FileText className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                        <span>{foto.observacoes}</span>
+                      </p>
+                    </div>
+                  ) : !readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setActivePhoto(foto)}
+                      className="text-[10px] text-teal-600 hover:text-teal-700 flex items-center gap-0.5 mt-0.5"
+                    >
+                      + Adicionar observação
+                    </button>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px] text-slate-400">
-                  <span>{new Date(foto.dataHora).toLocaleDateString('pt-BR')}</span>
+                  <span title={formatDateTimeBR(foto.dataHora)}>
+                    {formatDateTimeBR(foto.dataHora).split(' às ')[0]}
+                  </span>
                   
-                  {!readOnly && onDeletePhoto && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeletePhoto(foto.id);
-                      }}
-                      title="Excluir foto"
-                      className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActivePhoto(foto);
+                        }}
+                        title="Editar título e observações"
+                        className="text-slate-400 hover:text-teal-600 p-1 rounded hover:bg-teal-50 transition"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {!readOnly && onDeletePhoto && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Deseja excluir esta foto?')) {
+                            onDeletePhoto(foto.id);
+                          }
+                        }}
+                        title="Excluir foto"
+                        className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -228,11 +279,15 @@ export const PhotoGallery: React.FC<PhotoGalleryProps> = ({
         </div>
       )}
 
-      {/* Full Photo Modal */}
+      {/* Full Photo Modal with Edit capabilities */}
       <PhotoModal
         foto={activePhoto}
         onClose={() => setActivePhoto(null)}
         onDelete={onDeletePhoto}
+        onPhotoUpdated={(updatedFoto) => {
+          setActivePhoto(updatedFoto);
+          if (onPhotoAdded) onPhotoAdded();
+        }}
         readOnly={readOnly}
       />
     </div>

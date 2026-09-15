@@ -1,0 +1,10 @@
+{
+  "name": "Vistoria de Cessão de Espaço",
+  "description": "Aplicativo de Vistoria de Cessão de Espaço - Controle de Vistoria Inicial, Vistoria Final, Comparativo e Termo em PDF",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

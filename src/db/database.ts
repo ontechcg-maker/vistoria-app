@@ -1,5 +1,16 @@
 import Dexie, { type Table } from 'dexie';
 import type { Evento, Vistoria, ItemVistoria, FotoVistoria, HistoricoEvento, GoogleDriveConfig } from '../types/vistoria';
+import {
+  isReplicating,
+  pushEventoToFirestore,
+  deleteEventoFromFirestore,
+  pushVistoriaToFirestore,
+  pushItemToFirestore,
+  deleteItemFromFirestore,
+  pushFotoToFirestore,
+  deleteFotoFromFirestore,
+  pushHistoricoToFirestore,
+} from '../services/firestoreSyncService';
 
 export class VistoriaDatabase extends Dexie {
   eventos!: Table<Evento, string>;
@@ -24,6 +35,91 @@ export class VistoriaDatabase extends Dexie {
 }
 
 export const db = new VistoriaDatabase();
+
+// Registra hooks automáticos para espelhar todas as mutações no Firebase Firestore
+db.eventos.hook('creating', function (primKey, obj) {
+  if (!isReplicating()) {
+    const item = { ...obj, id: obj.id || String(primKey) };
+    setTimeout(() => pushEventoToFirestore(item), 0);
+  }
+});
+
+db.eventos.hook('updating', function (modifications, _primKey, obj) {
+  if (!isReplicating()) {
+    const updated = { ...obj, ...modifications };
+    setTimeout(() => pushEventoToFirestore(updated as Evento), 0);
+  }
+});
+
+db.eventos.hook('deleting', function (primKey) {
+  if (!isReplicating()) {
+    const id = String(primKey);
+    setTimeout(() => deleteEventoFromFirestore(id), 0);
+  }
+});
+
+db.vistorias.hook('creating', function (primKey, obj) {
+  if (!isReplicating()) {
+    const item = { ...obj, id: obj.id || String(primKey) };
+    setTimeout(() => pushVistoriaToFirestore(item), 0);
+  }
+});
+
+db.vistorias.hook('updating', function (modifications, _primKey, obj) {
+  if (!isReplicating()) {
+    const updated = { ...obj, ...modifications };
+    setTimeout(() => pushVistoriaToFirestore(updated as Vistoria), 0);
+  }
+});
+
+db.itens.hook('creating', function (primKey, obj) {
+  if (!isReplicating()) {
+    const item = { ...obj, id: obj.id || String(primKey) };
+    setTimeout(() => pushItemToFirestore(item), 0);
+  }
+});
+
+db.itens.hook('updating', function (modifications, _primKey, obj) {
+  if (!isReplicating()) {
+    const updated = { ...obj, ...modifications };
+    setTimeout(() => pushItemToFirestore(updated as ItemVistoria), 0);
+  }
+});
+
+db.itens.hook('deleting', function (primKey) {
+  if (!isReplicating()) {
+    const id = String(primKey);
+    setTimeout(() => deleteItemFromFirestore(id), 0);
+  }
+});
+
+db.fotos.hook('creating', function (primKey, obj) {
+  if (!isReplicating()) {
+    const item = { ...obj, id: obj.id || String(primKey) };
+    setTimeout(() => pushFotoToFirestore(item), 0);
+  }
+});
+
+db.fotos.hook('updating', function (modifications, _primKey, obj) {
+  if (!isReplicating()) {
+    const updated = { ...obj, ...modifications };
+    setTimeout(() => pushFotoToFirestore(updated as FotoVistoria), 0);
+  }
+});
+
+db.fotos.hook('deleting', function (primKey) {
+  if (!isReplicating()) {
+    const id = String(primKey);
+    setTimeout(() => deleteFotoFromFirestore(id), 0);
+  }
+});
+
+db.historico.hook('creating', function (primKey, obj) {
+  if (!isReplicating()) {
+    const item = { ...obj, id: obj.id || String(primKey) };
+    setTimeout(() => pushHistoricoToFirestore(item), 0);
+  }
+});
 
 // Helpers para logging e histórico
 export async function registrarHistorico(

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, FileText, ClipboardList, CheckCircle2, Image as ImageIcon, History, Cloud, Edit3, Lock, Clock, Printer } from 'lucide-react';
+import { ArrowLeft, FileText, ClipboardList, CheckCircle2, Image as ImageIcon, History, Cloud, Edit3, Lock, Clock, Printer, Building } from 'lucide-react';
 import type { Evento, Vistoria, ItemVistoria, FotoVistoria, HistoricoEvento, TipoDocumentoPdf } from '../../types/vistoria';
 import { db, registrarHistorico } from '../../db/database';
 import { getCustomInspectionItems } from '../../config/defaultInspectionItems';
@@ -8,10 +8,12 @@ import { InitialInspectionForm } from '../inspection/InitialInspectionForm';
 import { FinalInspectionForm } from '../inspection/FinalInspectionForm';
 import { PhotoGallery } from '../photos/PhotoGallery';
 import { UnlockFinalModal } from '../inspection/UnlockFinalModal';
+import { EditCessionarioModal } from './EditCessionarioModal';
 import { generateTermoVistoriaPdf } from '../../services/pdfGenerator';
 import { PdfViewerModal } from '../pdf/PdfViewerModal';
 import type { jsPDF } from 'jspdf';
 import { syncEventToGoogleDrive } from '../../services/googleDriveService';
+import { formatDateTimeBR } from '../../utils/dateUtils';
 
 interface EventDetailProps {
   eventoId: string;
@@ -34,6 +36,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
 
   const [activeTab, setActiveTab] = useState<'inicial' | 'final' | 'fotos' | 'historico'>('inicial');
   const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showEditCessionarioModal, setShowEditCessionarioModal] = useState(false);
 
   // PDF Modal
   const [pdfModalDoc, setPdfModalDoc] = useState<jsPDF | null>(null);
@@ -138,7 +141,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
       evento.id,
       vistoriaInicial?.responsavelSedeNome || 'Fiscal SEDE',
       'Vistoria Final Liberada Pós-evento',
-      `Data/hora de encerramento registrada: ${new Date(dataHoraRealFim).toLocaleString('pt-BR')}`
+      `Data/hora de encerramento registrada: ${formatDateTimeBR(dataHoraRealFim)}`
     );
 
     await loadEventData();
@@ -148,15 +151,22 @@ export const EventDetail: React.FC<EventDetailProps> = ({
   const handleGeneratePdf = async (tipoDocumento: TipoDocumentoPdf = 'COMPLETO', isDraft = false) => {
     setIsGeneratingPdf(true);
     try {
-      // Busca a lista mais atualizada de fotos do banco para garantir que nada fique de fora
-      const fotosAtualizadas = await db.fotos.where({ eventoId: evento.id }).sortBy('ordem');
+      // Busca a versão mais atualizada de tudo no banco para garantir que observações e dados do fiscal estejam 100% sincronizados
+      const [freshestEvento, freshestVistoriaIni, freshestVistoriaFin, freshestItensIni, freshestItensFin, fotosAtualizadas] = await Promise.all([
+        db.eventos.get(evento.id),
+        db.vistorias.where({ eventoId: evento.id, tipo: 'INICIAL' }).first(),
+        db.vistorias.where({ eventoId: evento.id, tipo: 'FINAL' }).first(),
+        db.itens.where({ eventoId: evento.id, vistoriaTipo: 'INICIAL' }).sortBy('ordem'),
+        db.itens.where({ eventoId: evento.id, vistoriaTipo: 'FINAL' }).sortBy('ordem'),
+        db.fotos.where({ eventoId: evento.id }).sortBy('ordem'),
+      ]);
 
       const doc = await generateTermoVistoriaPdf({
-        evento,
-        vistoriaInicial,
-        vistoriaFinal,
-        itensIniciais,
-        itensFinais,
+        evento: freshestEvento || evento,
+        vistoriaInicial: freshestVistoriaIni || vistoriaInicial,
+        vistoriaFinal: freshestVistoriaFin || vistoriaFinal,
+        itensIniciais: freshestItensIni.length > 0 ? freshestItensIni : itensIniciais,
+        itensFinais: freshestItensFin.length > 0 ? freshestItensFin : itensFinais,
         fotos: fotosAtualizadas.length > 0 ? fotosAtualizadas : fotos,
         isDraft,
         tipoDocumento,
@@ -202,6 +212,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-2.5 min-w-0">
             <button
+              id="btn-back-to-list"
               onClick={onBack}
               className="p-2 sm:p-2.5 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition active:scale-95 shrink-0 min-h-[38px] min-w-[38px] flex items-center justify-center"
               title="Voltar à lista de cessões"
@@ -218,7 +229,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
                   • {evento.espacoCedido}
                 </span>
                 {evento.googleDriveSyncedAt && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title={`Sincronizado no Google Drive em: ${new Date(evento.googleDriveSyncedAt).toLocaleString('pt-BR')}`}>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full" title={`Sincronizado no Google Drive em: ${formatDateTimeBR(evento.googleDriveSyncedAt)}`}>
                     <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                     Drive OK
                   </span>
@@ -233,14 +244,27 @@ export const EventDetail: React.FC<EventDetailProps> = ({
           {/* Action Buttons Toolbar */}
           <div className="flex items-center gap-2 flex-wrap pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
             <button
+              id="btn-edit-event"
               onClick={() => onEditEvent(evento)}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition active:scale-95 min-h-[38px]"
+              title="Editar todos os dados da cessão"
             >
               <Edit3 className="w-3.5 h-3.5" />
-              <span>Editar</span>
+              <span>Editar Cessão</span>
             </button>
 
             <button
+              id="btn-edit-cessionario-toolbar"
+              onClick={() => setShowEditCessionarioModal(true)}
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition active:scale-95 min-h-[38px]"
+              title="Editar dados cadastrais, CNPJ/CPF e representantes do cessionário"
+            >
+              <Building className="w-3.5 h-3.5 text-teal-600" />
+              <span>Cessionário</span>
+            </button>
+
+            <button
+              id="btn-sync-drive-event"
               onClick={handleDirectSyncDrive}
               disabled={isSyncingDrive}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition active:scale-95 disabled:opacity-50 min-h-[38px]"
@@ -252,6 +276,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
 
             {/* Botão de Termo de Entrega (Vistoria Inicial) */}
             <button
+              id="btn-generate-pdf-inicial"
               onClick={() => handleGeneratePdf('INICIAL_ENTREGA', !isInicialConcluida)}
               disabled={isGeneratingPdf}
               className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-teal-950 bg-teal-100 hover:bg-teal-200 border border-teal-300 shadow-xs active:scale-95 transition min-h-[38px]"
@@ -263,6 +288,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
 
             {/* Botão de Termo Final (Devolução) */}
             <button
+              id="btn-generate-pdf-final"
               onClick={() => handleGeneratePdf('COMPLETO', !isFinalConcluida)}
               disabled={isGeneratingPdf}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-950 bg-teal-400 hover:bg-teal-300 shadow-md shadow-teal-400/20 active:scale-95 transition disabled:opacity-50 min-h-[38px]"
@@ -284,16 +310,43 @@ export const EventDetail: React.FC<EventDetailProps> = ({
       {/* Event Details Compact Card */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm text-xs text-slate-600">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div>
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-0.5 text-[10px]">Cessionário(a)</span>
-            <span className="font-semibold text-slate-800 text-xs sm:text-sm">{evento.contratante}</span>
+          <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <span className="font-bold text-slate-400 uppercase tracking-wider block text-[10px]">Cessionário(a)</span>
+              <button
+                type="button"
+                id="btn-quick-edit-cessionario"
+                onClick={() => setShowEditCessionarioModal(true)}
+                className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 hover:text-teal-900 bg-white hover:bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md shadow-2xs transition active:scale-95"
+                title="Editar dados cadastrais do cessionário"
+              >
+                <Edit3 className="w-2.5 h-2.5 text-teal-600" />
+                <span>Editar</span>
+              </button>
+            </div>
+            <span className="font-semibold text-slate-800 text-xs sm:text-sm block">{evento.contratante}</span>
             {evento.docContratante && <span className="block text-slate-500 font-mono text-[11px] mt-0.5">{evento.docContratante}</span>}
           </div>
 
-          <div>
-            <span className="font-bold text-slate-400 uppercase tracking-wider block mb-0.5 text-[10px]">Representante Legal</span>
-            <span className="font-semibold text-slate-800 text-xs sm:text-sm">{evento.representanteLegal || evento.responsavelEvento}</span>
-            <span className="block text-slate-500 text-[11px] mt-0.5">{evento.telefoneResponsavel || '-'}</span>
+          <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+            <div className="flex items-center justify-between gap-1 mb-0.5">
+              <span className="font-bold text-slate-400 uppercase tracking-wider block text-[10px]">Representante Legal</span>
+              <button
+                type="button"
+                id="btn-quick-edit-representante"
+                onClick={() => setShowEditCessionarioModal(true)}
+                className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 hover:text-teal-900 bg-white hover:bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md shadow-2xs transition active:scale-95"
+                title="Editar representante do cessionário"
+              >
+                <Edit3 className="w-2.5 h-2.5 text-teal-600" />
+                <span>Editar</span>
+              </button>
+            </div>
+            <span className="font-semibold text-slate-800 text-xs sm:text-sm block">{evento.representanteLegal || evento.responsavelEvento || 'Não informado'}</span>
+            <div className="flex items-center gap-2 text-slate-500 text-[11px] mt-0.5 flex-wrap">
+              {evento.cpfRepresentanteLegal && <span>CPF: {evento.cpfRepresentanteLegal}</span>}
+              {evento.telefoneResponsavel && <span>• Tel: {evento.telefoneResponsavel}</span>}
+            </div>
           </div>
 
           <div>
@@ -317,6 +370,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
       {/* Navigation Tabs (Mobile scrollable) */}
       <div className="flex border-b border-slate-200 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto gap-1.5 scrollbar-none">
         <button
+          id="tab-vistoria-inicial"
           onClick={() => setActiveTab('inicial')}
           className={`flex-1 min-w-[140px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition whitespace-nowrap min-h-[40px] ${
             activeTab === 'inicial'
@@ -330,6 +384,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
         </button>
 
         <button
+          id="tab-vistoria-final"
           onClick={() => {
             if (!isInicialConcluida) {
               alert('A vistoria inicial precisa ser concluída antes de acessar a vistoria final.');
@@ -352,6 +407,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
         </button>
 
         <button
+          id="tab-fotos"
           onClick={() => setActiveTab('fotos')}
           className={`flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition whitespace-nowrap min-h-[40px] ${
             activeTab === 'fotos'
@@ -364,6 +420,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
         </button>
 
         <button
+          id="tab-historico"
           onClick={() => setActiveTab('historico')}
           className={`flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition whitespace-nowrap min-h-[40px] ${
             activeTab === 'historico'
@@ -385,6 +442,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
           fotos={fotos}
           onRefresh={loadEventData}
           onGenerateInitialPdf={() => handleGeneratePdf('INICIAL_ENTREGA', !isInicialConcluida)}
+          onEditCessionario={() => setShowEditCessionarioModal(true)}
         />
       )}
 
@@ -435,6 +493,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
               fotos={fotos}
               onRefresh={loadEventData}
               onGeneratePdf={() => handleGeneratePdf('COMPLETO', false)}
+              onEditCessionario={() => setShowEditCessionarioModal(true)}
             />
           )}
         </>
@@ -471,7 +530,7 @@ export const EventDetail: React.FC<EventDetailProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-0.5 text-xs">
                     <span className="font-bold text-slate-900">{h.acao}</span>
                     <span className="text-slate-400 font-mono text-[11px]">
-                      {new Date(h.dataHora).toLocaleString('pt-BR')}
+                      {formatDateTimeBR(h.dataHora)}
                     </span>
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">
@@ -505,6 +564,17 @@ export const EventDetail: React.FC<EventDetailProps> = ({
         codigoEvento={evento.processoProtocolo || evento.codigo}
         isDraft={!isFinalConcluida}
         onClose={() => setPdfModalDoc(null)}
+      />
+
+      {/* Edit Cessionario Modal */}
+      <EditCessionarioModal
+        isOpen={showEditCessionarioModal}
+        onClose={() => setShowEditCessionarioModal(false)}
+        evento={evento}
+        onSaved={(updatedEvento) => {
+          setEvento(updatedEvento);
+          loadEventData();
+        }}
       />
     </div>
   );

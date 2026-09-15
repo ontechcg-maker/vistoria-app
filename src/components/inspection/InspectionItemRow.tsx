@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, AlertCircle, XCircle, MinusCircle, Camera, MessageSquare, Image as ImageIcon, Trash2 } from 'lucide-react';
 import type { ItemVistoria, CondicaoItem, FotoVistoria } from '../../types/vistoria';
 import { PhotoUploader } from '../photos/PhotoUploader';
@@ -23,7 +23,25 @@ export const InspectionItemRow: React.FC<InspectionItemRowProps> = ({
   onPhotoAdded,
 }) => {
   const [showObs, setShowObs] = useState(Boolean(item.observacao));
+  const [localObs, setLocalObs] = useState(item.observacao || '');
+  const [isObsSaving, setIsObsSaving] = useState(false);
   const [showPhotoUploader, setShowPhotoUploader] = useState(false);
+
+  useEffect(() => {
+    setLocalObs(item.observacao || '');
+    if (item.observacao) {
+      setShowObs(true);
+    }
+  }, [item.observacao]);
+
+  const handleCommitObs = () => {
+    const trimmed = localObs.trim();
+    if (trimmed !== (item.observacao || '')) {
+      setIsObsSaving(true);
+      onUpdate({ observacao: trimmed });
+      setTimeout(() => setIsObsSaving(false), 700);
+    }
+  };
 
   const statusButtons: { value: CondicaoItem; label: string; icon: React.FC<{ className?: string }>; activeClass: string }[] = [
     {
@@ -187,15 +205,32 @@ export const InspectionItemRow: React.FC<InspectionItemRowProps> = ({
       </div>
 
       {/* Observation Field */}
-      {(showObs || item.observacao) && (
+      {(showObs || item.observacao || localObs) && (
         <div className="mt-3 pt-3 border-t border-slate-200/80">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+              <MessageSquare className="w-3 h-3 text-amber-600" />
+              Observação / Ressalva deste item
+            </label>
+            {isObsSaving ? (
+              <span className="text-[10px] text-teal-600 font-bold animate-pulse">Salvando...</span>
+            ) : localObs ? (
+              <span className="text-[10px] text-slate-400">Salvo no item</span>
+            ) : null}
+          </div>
           <input
             type="text"
             disabled={readOnly}
-            value={item.observacao || ''}
-            onChange={(e) => onUpdate({ observacao: e.target.value })}
-            placeholder="Observação detalhada (ex: leve avaria, pintura descascada...)"
-            className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none bg-white min-h-[40px]"
+            value={localObs}
+            onChange={(e) => setLocalObs(e.target.value)}
+            onBlur={handleCommitObs}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
+            placeholder="Descreva aqui avaria, condição específica ou observação deste item..."
+            className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none bg-white min-h-[40px]"
           />
         </div>
       )}
@@ -222,6 +257,7 @@ export const InspectionItemRow: React.FC<InspectionItemRowProps> = ({
             vistoriaTipo={item.vistoriaTipo}
             ambiente={item.ambiente}
             itemId={item.id}
+            defaultTitulo={item.descricao}
             onPhotoAdded={() => {
               if (onPhotoAdded) onPhotoAdded();
             }}

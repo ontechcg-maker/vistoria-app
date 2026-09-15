@@ -47,6 +47,16 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
   };
 
   const handlePrint = () => {
+    try {
+      const iframe = document.querySelector('iframe[title="Termo de Vistoria PDF"]') as HTMLIFrameElement | null;
+      if (iframe?.contentWindow) {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        return;
+      }
+    } catch {
+      // Fallback if cross-origin or blocked
+    }
     doc.autoPrint();
     const blob = doc.output('bloburl');
     window.open(blob, '_blank');

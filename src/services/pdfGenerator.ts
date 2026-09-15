@@ -3,6 +3,7 @@ import autoTable, { type UserOptions } from 'jspdf-autotable';
 import type { Evento, Vistoria, ItemVistoria, FotoVistoria, TipoDocumentoPdf } from '../types/vistoria';
 import { getComparisonLabel, calculateComparisonResult } from './comparisonService';
 import { LOGO_SEDE_BASE64 } from '../assets/logoSede';
+import { formatDateTimeBR } from '../utils/dateUtils';
 
 interface GeneratePdfOptions {
   evento: Evento;
@@ -28,6 +29,19 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
   } = options;
 
   const isTermoInicial = tipoDocumento === 'INICIAL_ENTREGA';
+
+  // Identificação oficial e unificada do Fiscal da SEDE
+  const fiscalNomeOficial =
+    (isTermoInicial
+      ? (vistoriaInicial?.responsavelSedeNome || evento.responsavelSedeNome || vistoriaInicial?.responsavelNome)
+      : (vistoriaFinal?.responsavelSedeNome || evento.responsavelSedeNome || vistoriaInicial?.responsavelSedeNome || vistoriaInicial?.responsavelNome)) ||
+    'Fiscal Designado pela SEDE';
+
+  const fiscalMatriculaOficial =
+    (isTermoInicial
+      ? (vistoriaInicial?.responsavelSedeMatricula || evento.responsavelSedeMatricula)
+      : (vistoriaFinal?.responsavelSedeMatricula || evento.responsavelSedeMatricula || vistoriaInicial?.responsavelSedeMatricula)) ||
+    'SEDE-4412';
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -158,6 +172,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
     ['TELEFONE / CONTATO:', evento.telefoneResponsavel || '-', 'E-MAIL:', evento.emailResponsavel || '-'],
     ['EVENTO / ATIVIDADE:', evento.nome || '-', 'PROCESSO / PROTOCOLO:', evento.processoProtocolo || evento.codigo || '-'],
     ['LOCAL CEDIDO:', evento.espacoCedido || '-', 'ÁREAS / ESPAÇOS:', evento.areaEspacoCedido || evento.enderecoLocal || '-'],
+    ['RESPONSÁVEL SEDE:', `${fiscalNomeOficial} (Mat. ${fiscalMatriculaOficial})`, 'DATA DA VISTORIA:', formatDate(vistoriaInicial?.dataHoraPreenchimento || vistoriaFinal?.dataHoraPreenchimento || evento.dataInicio)],
     ['PERÍODO DE UTILIZAÇÃO:', `${formatDate(evento.dataHoraPrevisaoInicio)} até ${formatDate(evento.dataHoraPrevisaoFim)}`, 'ENCERRAMENTO REAL:', evento.dataHoraRealFim ? formatDate(evento.dataHoraRealFim) : (isTermoInicial ? 'Aguardando encerramento' : 'Não registrado')],
     ['PERÍODO MONTAGEM:', evento.periodoMontagem || 'Conforme cronograma', 'PERÍODO DESMONTAGEM:', evento.periodoDesmontagem || 'Conforme cronograma'],
   ];
@@ -212,7 +227,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
     checkPageBreak(35);
     drawSectionHeader(
       '3. Ficha de Vistoria Inicial — Condições de Entrega',
-      `Homologada por: ${vistoriaInicial?.responsavelSedeNome || vistoriaInicial?.responsavelNome || 'Fiscal SEDE'}`
+      `Fiscal SEDE: ${fiscalNomeOficial} (Mat. ${fiscalMatriculaOficial})`
     );
 
     const rowsItensInicial = itensIniciais.map((item, idx) => [
@@ -220,7 +235,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
       item.ambiente,
       item.descricao,
       item.situacao,
-      item.observacao || 'Conforme vistoriado (sem ressalvas)',
+      item.observacao ? `Ressalva: ${item.observacao.trim()}` : 'Conforme vistoriado (sem ressalvas)',
     ]);
 
     autoTable(doc, {
@@ -233,7 +248,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
       styles: { fontSize: 6.8, cellPadding: 1.6, lineColor: [226, 232, 240], lineWidth: 0.1 },
       columnStyles: {
         0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 42 },
+        1: { cellWidth: 40 },
         2: { cellWidth: 55 },
         3: { cellWidth: 20, fontStyle: 'bold', halign: 'center' },
         4: { cellWidth: 'auto' },
@@ -252,10 +267,49 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
             data.cell.styles.fillColor = [255, 228, 230];
           }
         }
+        if (data.section === 'body' && data.column.index === 4) {
+          const rawText = String(data.cell.raw || '');
+          if (rawText.startsWith('Ressalva:')) {
+            data.cell.styles.textColor = [180, 83, 9];
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [254, 243, 199];
+          }
+        }
       },
     } as UserOptions);
 
     currentY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
+
+    // --- OBSERVAÇÕES GERAIS DAS CONDIÇÕES DE ENTREGA ---
+    const obsGeraisEntrega = (vistoriaInicial?.observacoesGerais?.trim() || evento.observacoesGerais?.trim() || '');
+    checkPageBreak(24);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.2);
+
+    const obsText = obsGeraisEntrega 
+      ? obsGeraisEntrega 
+      : 'Nenhuma ressalva geral registrada na entrega do espaço. O local foi entregue em condições regulares para uso e montagem conforme vistoria individual dos itens.';
+    
+    const splitObsGerais = doc.splitTextToSize(obsText, pageWidth - margin * 2 - 8);
+    const boxHeight = Math.max(15, splitObsGerais.length * 3.5 + 8);
+    
+    doc.rect(margin, currentY, pageWidth - margin * 2, boxHeight, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text('OBSERVAÇÕES GERAIS DAS CONDIÇÕES DE ENTREGA (SEDE):', margin + 4, currentY + 4.5);
+    
+    doc.setFont('helvetica', obsGeraisEntrega ? 'normal' : 'italic');
+    doc.setFontSize(7);
+    if (obsGeraisEntrega) {
+      doc.setTextColor(15, 23, 42);
+    } else {
+      doc.setTextColor(100, 116, 139);
+    }
+    doc.text(splitObsGerais, margin + 4, currentY + 8.5);
+    
+    currentY += boxHeight + 4;
 
     // --- SEÇÃO 4: DECLARAÇÃO DE RECEBIMENTO E CIÊNCIA DO CESSIONÁRIO ---
     checkPageBreak(30);
@@ -273,7 +327,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(30, 41, 59);
-    const termoCiencia = `O(A) CESSIONÁRIO(A), por seu representante legal abaixo assinado, DECLARA TER RECEBIDO o espaço público acima especificado nas EXATAS CONDIÇÕES atestadas nesta Ficha de Vistoria Inicial, assumindo plena ciência e inteira responsabilidade pela guarda, conservação e fiel restituição do bem público nas mesmas condições ao término da cessão.`;
+    const termoCiencia = `O(A) CESSIONÁRIO(A), por seu representante legal abaixo assinado, DECLARA TER RECEBIDO o espaço público acima especificado nas EXATAS CONDIÇÕES atestadas nesta Ficha de Vistoria Inicial e nas observações gerais supracitadas, assumindo plena ciência e inteira responsabilidade pela guarda, conservação e fiel restituição do bem público nas mesmas condições ao término da cessão.`;
     const splitCiencia = doc.splitTextToSize(termoCiencia, pageWidth - margin * 2 - 6);
     doc.text(splitCiencia, margin + 3, currentY + 8.5);
 
@@ -310,7 +364,21 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
         (sitIni === 'BOM' && sitFin === 'REGULAR');
 
       const alteracao = isDanoOuAlteracao ? 'SIM' : 'NÃO';
-      const obsProv = itemFinal.providenciaNecessaria || itemFinal.justificativaDivergencia || itemFinal.observacao || '-';
+
+      const partsObs: string[] = [];
+      if (itemIni?.observacao?.trim()) {
+        partsObs.push(`Inicial: ${itemIni.observacao.trim()}`);
+      }
+      if (itemFinal.observacao?.trim()) {
+        partsObs.push(`Final: ${itemFinal.observacao.trim()}`);
+      }
+      if (itemFinal.justificativaDivergencia?.trim()) {
+        partsObs.push(`Divergência: ${itemFinal.justificativaDivergencia.trim()}`);
+      }
+      if (itemFinal.providenciaNecessaria?.trim()) {
+        partsObs.push(`Providência: ${itemFinal.providenciaNecessaria.trim()}`);
+      }
+      const obsProv = partsObs.length > 0 ? partsObs.join(' • ') : '-';
 
       return [
         String(idx + 1).padStart(2, '0'),
@@ -326,16 +394,16 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
     autoTable(doc, {
       startY: currentY,
       margin: { left: margin, right: margin },
-      head: [['Item', 'Descrição do Item Inspecionado', 'Inicial', 'Final', 'Alteração?', 'Resultado Comparativo', 'Providência / Ocorrência']],
+      head: [['Item', 'Descrição do Item Inspecionado', 'Inicial', 'Final', 'Alteração?', 'Resultado Comparativo', 'Observações / Providências']],
       body: rowsComparativo,
       theme: 'grid',
       headStyles: { fillColor: primaryColor, textColor: 255, fontStyle: 'bold', fontSize: 7 },
       styles: { fontSize: 6.8, cellPadding: 1.6, lineColor: [226, 232, 240], lineWidth: 0.1 },
       columnStyles: {
         0: { cellWidth: 8, halign: 'center' },
-        1: { cellWidth: 48 },
-        2: { cellWidth: 16, halign: 'center' },
-        3: { cellWidth: 16, halign: 'center' },
+        1: { cellWidth: 46 },
+        2: { cellWidth: 15, halign: 'center' },
+        3: { cellWidth: 15, halign: 'center' },
         4: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
         5: { cellWidth: 32 },
         6: { cellWidth: 'auto' },
@@ -423,7 +491,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(190, 18, 60);
-      doc.text('DETERMINAÇÕES E PROVIDÊNCIAS GERAIS DA FISCALIZAÇÃO SEDE:', margin + 3, currentY + 4);
+      doc.text('DETERMINAÇÕES E PROVIDÊNCIAS GERAIS DA FISCALIZAÇÃO SEDE (VISTORIA FINAL):', margin + 3, currentY + 4);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.8);
@@ -435,7 +503,29 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
       doc.text(splitProv, margin + 3, currentY + 8);
 
       currentY += Math.max(15, splitProv.length * 3 + 7);
-    } else if (itensComDano.length === 0 && statusDev !== 'CONFORME') {
+    }
+
+    // Exibir também as observações gerais registradas na vistoria inicial para contexto completo
+    const obsIniGerais = (vistoriaInicial?.observacoesGerais?.trim() || evento.observacoesGerais?.trim() || '');
+    if (obsIniGerais) {
+      checkPageBreak(16);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(margin, currentY, pageWidth - margin * 2, 13, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(51, 65, 85);
+      doc.text('OBSERVAÇÕES GERAIS REGISTRADAS NA ENTREGA DO ESPAÇO (VISTORIA INICIAL):', margin + 3, currentY + 4);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(30, 41, 59);
+      const splitObsIni = doc.splitTextToSize(obsIniGerais, pageWidth - margin * 2 - 6);
+      doc.text(splitObsIni, margin + 3, currentY + 8);
+
+      currentY += Math.max(15, splitObsIni.length * 3 + 7);
+    } else if (itensComDano.length === 0 && statusDev !== 'CONFORME' && !temProvidenciasGerais) {
       checkPageBreak(14);
       doc.setFillColor(255, 241, 242);
       doc.setDrawColor(244, 63, 94);
@@ -456,7 +546,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
       );
 
       currentY += 13;
-    } else if (itensComDano.length === 0 && statusDev === 'CONFORME') {
+    } else if (itensComDano.length === 0 && statusDev === 'CONFORME' && !temProvidenciasGerais) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.2);
       doc.setTextColor(22, 101, 52);
@@ -531,11 +621,11 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(...primaryColor);
-  doc.text(vistoriaInicial?.responsavelSedeNome || vistoriaFinal?.responsavelSedeNome || vistoriaInicial?.responsavelNome || 'RESPONSÁVEL PELA VISTORIA – SEDE', margin, currentY + 3.5);
+  doc.text(fiscalNomeOficial, margin, currentY + 3.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.8);
   doc.setTextColor(100, 116, 139);
-  doc.text(`Matrícula SEDE: ${vistoriaInicial?.responsavelSedeMatricula || vistoriaFinal?.responsavelSedeMatricula || 'Fiscal Designado'}`, margin, currentY + 7);
+  doc.text(`Matrícula SEDE: ${fiscalMatriculaOficial} (Fiscal Designado)`, margin, currentY + 7);
 
   // Bloco 4: Representante do(a) Cessionário(a)
   doc.line(col2X, currentY, col2X + colWidth, currentY);
@@ -590,7 +680,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
       const foto = fotosFiltradas[i];
       const posX = margin + photoCol * (photoWidth + 8);
 
-      if (currentY + photoHeight + 17 > pageHeight - margin - 8) {
+      if (currentY + photoHeight + 20 > pageHeight - margin - 8) {
         doc.addPage();
         currentY = margin + 6;
         photoCol = 0;
@@ -658,26 +748,41 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
         doc.setFontSize(5.5);
         doc.text(isIni ? 'VISTORIA INICIAL' : 'VISTORIA FINAL', posX + 2, currentY + 3.2);
 
-        // Legenda e Descrição
+        // Bloco de Informações da Foto (Título, Local, Data e Observações)
+        let textY = currentY + photoHeight + 3.2;
+
+        // Título / Legenda
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.5);
         doc.setTextColor(30, 41, 59);
-        const descText = foto.legenda || `${foto.ambiente || 'Registro Fotográfico'} (Foto ${i + 1})`;
-        const splitDesc = doc.splitTextToSize(descText, photoWidth);
-        doc.text(splitDesc, posX, currentY + photoHeight + 3.5);
+        const titleText = foto.titulo || foto.legenda || `${foto.ambiente || 'Registro Fotográfico'} (Foto ${i + 1})`;
+        const splitTitle = doc.splitTextToSize(titleText, photoWidth);
+        doc.text(splitTitle, posX, textY);
+        textY += splitTitle.length * 2.7;
 
+        // Local e Data/Horário com fuso correto
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.8);
-        doc.setTextColor(148, 163, 184);
-        const dataStr = foto.dataHora ? new Date(foto.dataHora).toLocaleString('pt-BR') : 'Data não informada';
-        doc.text(`Data/Hora: ${dataStr}`, posX, currentY + photoHeight + 3.5 + splitDesc.length * 2.8);
+        doc.setFontSize(5.5);
+        doc.setTextColor(100, 116, 139);
+        const dataStr = foto.dataHora ? formatDateTimeBR(foto.dataHora) : 'Data não informada';
+        doc.text(`Local: ${foto.ambiente || 'Geral'} • ${dataStr}`, posX, textY);
+        textY += 2.6;
+
+        // Observações detalhadas da fotografia (se houver)
+        if (foto.observacoes && foto.observacoes.trim()) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(5.5);
+          doc.setTextColor(51, 65, 85);
+          const obsLines = doc.splitTextToSize(`Obs: ${foto.observacoes.trim()}`, photoWidth);
+          doc.text(obsLines, posX, textY);
+        }
       } catch (err) {
         console.warn('Erro ao inserir foto no anexo do PDF:', err);
       }
 
       if (photoCol === 1) {
         photoCol = 0;
-        currentY += photoHeight + 16;
+        currentY += photoHeight + 19;
       } else {
         photoCol = 1;
       }
@@ -704,13 +809,7 @@ export async function generateTermoVistoriaPdf(options: GeneratePdfOptions): Pro
 
 function formatDate(isoString: string): string {
   if (!isoString) return '-';
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return isoString;
-    return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return isoString;
-  }
+  return formatDateTimeBR(isoString);
 }
 
 function getNomeMes(mesIndex: number): string {

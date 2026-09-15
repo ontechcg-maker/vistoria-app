@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, MapPin, Building, User, Mail, Phone, FileText, Clock, Check, Sparkles } from 'lucide-react';
+import { X, Calendar, MapPin, Building, User, Mail, Phone, FileText, Clock, Check, Sparkles, UserCheck } from 'lucide-react';
 import type { Evento } from '../../types/vistoria';
 
 interface EventFormModalProps {
@@ -37,6 +37,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
     dataHoraPrevisaoFim: `${new Date().toISOString().slice(0, 10)}T22:00`,
     periodoMontagem: '08:00 às 18:00 do dia anterior',
     periodoDesmontagem: 'Até as 14:00 do dia seguinte',
+    responsavelSedeNome: 'Fiscal de Vistoria da SEDE',
+    responsavelSedeMatricula: 'SEDE-4412',
     observacoesGerais: '',
   });
 
@@ -101,6 +103,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         dataHoraPrevisaoFim: eventToEdit.dataHoraPrevisaoFim || `${new Date().toISOString().slice(0, 10)}T22:00`,
         periodoMontagem: eventToEdit.periodoMontagem || '',
         periodoDesmontagem: eventToEdit.periodoDesmontagem || '',
+        responsavelSedeNome: eventToEdit.responsavelSedeNome || 'Fiscal de Vistoria da SEDE',
+        responsavelSedeMatricula: eventToEdit.responsavelSedeMatricula || 'SEDE-4412',
         observacoesGerais: eventToEdit.observacoesGerais || '',
       });
     } else {
@@ -131,6 +135,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         dataHoraPrevisaoFim: `${new Date().toISOString().slice(0, 10)}T22:00`,
         periodoMontagem: '08:00 às 18:00',
         periodoDesmontagem: 'Até as 14:00',
+        responsavelSedeNome: 'Fiscal de Vistoria da SEDE',
+        responsavelSedeMatricula: 'SEDE-4412',
         observacoesGerais: '',
       });
     }
@@ -683,6 +689,43 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 placeholder="Observações complementares, restrições ou termos vinculados ao processo..."
                 className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none resize-none"
               />
+            </div>
+          </div>
+
+          {/* 5. FISCALIZAÇÃO E RESPONSÁVEL SEDE */}
+          <div className="space-y-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-teal-600" />
+              5. Fiscalização e Responsável da Vistoria (SEDE)
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Fiscal / Responsável Designado SEDE *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.responsavelSedeNome}
+                  onChange={(e) => setFormData({ ...formData, responsavelSedeNome: e.target.value })}
+                  placeholder="Nome completo do fiscal da SEDE..."
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none min-h-[42px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Matrícula Funcional SEDE
+                </label>
+                <input
+                  type="text"
+                  value={formData.responsavelSedeMatricula}
+                  onChange={(e) => setFormData({ ...formData, responsavelSedeMatricula: e.target.value })}
+                  placeholder="Ex: SEDE-4412 ou matrícula do servidor"
+                  className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none min-h-[42px]"
+                />
+              </div>
             </div>
           </div>
 

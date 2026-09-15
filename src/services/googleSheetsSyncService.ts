@@ -186,7 +186,7 @@ export async function pushEventToGoogleSheets(eventoId: string): Promise<{ succe
       return { success: true, message: 'Dados salvos no Google Sheets e PDF enviado ao Google Drive com sucesso!' };
     }
     return { success: true, message: 'Dados transmitidos para o Google Sheets.' };
-  } catch (err: unknown) {
+  } catch {
     // Fallback assíncrono com mode no-cors
     try {
       await fetch(config.webhookUrl, {
@@ -306,7 +306,7 @@ export async function pushAllToGoogleSheets(): Promise<{ success: boolean; messa
       return { success: true, message: `Banco de dados sincronizado na Planilha Google! (${eventos.length} eventos enviados)`, count: eventos.length };
     }
     return { success: true, message: `Dados enviados para o Google Sheets.`, count: eventos.length };
-  } catch (err: unknown) {
+  } catch {
     try {
       await fetch(config.webhookUrl, {
         method: 'POST',
